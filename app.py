@@ -81,7 +81,10 @@ def header() -> None:
 def render_welcome() -> None:
     header()
     st.markdown("<div class='hero-pill'>✦ &nbsp; CURATED FOR YOUR LISTENING</div>", unsafe_allow_html=True)
-    st.title("Find your sound.<br>Make it yours.")
+    st.markdown(
+    "<h1>Find your sound.<br>Make it yours.</h1>",
+    unsafe_allow_html=True,
+)
     st.markdown("<p class='lead'>Take a quick look at a product selected for you. Shop just as you normally would.</p>", unsafe_allow_html=True)
     st.markdown("""<div class='trust-row'>
     <div><b>◷</b><span>Less than<br><strong>1 minute</strong></span></div>
