@@ -13,8 +13,8 @@ import streamlit as st
 
 BASE_DIR = Path(__file__).resolve().parent
 ADS = {
-    "A": BASE_DIR / "ads" / "version_a.png",
-    "B": BASE_DIR / "ads" / "version_b.png",
+    "A": BASE_DIR / "Version 1.png",
+    "B": BASE_DIR / "Version 2.png",
 }
 RESPONSES_FILE = BASE_DIR / "data" / "responses.csv"
 
