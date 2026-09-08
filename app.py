@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import secrets
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,7 @@ ADS = {"A": BASE_DIR / "Version 1.png", "B": BASE_DIR / "Version 2.png"}
 RESPONSES_FILE = BASE_DIR / "data" / "responses.csv"
 FIELDNAMES = [
     "respondent_id", "participant_id", "timestamp_utc", "assigned_group",
+    "decision", "decision_time_seconds",
     "online_purchase_last_6_months", "shopping_frequency", "discount_importance",
     "purchase_likelihood", "purchase_consideration", "offer_choice_likelihood",
     "purchase_intention_index", "discount_communication_recall", "discount_clarity",
@@ -22,7 +24,11 @@ FIELDNAMES = [
 
 
 def initialise_session() -> None:
-    for key, value in {"page": "welcome", "respondent_id": None, "assigned_group": None, "participant_id": ""}.items():
+    for key, value in {
+        "page": "welcome", "respondent_id": None, "assigned_group": None,
+        "participant_id": "", "ad_exposure_started_at": None, "decision": None,
+        "decision_time_seconds": None,
+    }.items():
         st.session_state.setdefault(key, value)
 
 
@@ -31,6 +37,9 @@ def begin_experiment(participant_id: str) -> None:
     st.session_state.respondent_id = f"R-{uuid.uuid4().hex[:8].upper()}"
     st.session_state.assigned_group = secrets.choice(("A", "B"))
     st.session_state.participant_id = participant_id.strip()
+    st.session_state.ad_exposure_started_at = None
+    st.session_state.decision = None
+    st.session_state.decision_time_seconds = None
     st.session_state.page = "offer"
 
 
@@ -70,18 +79,32 @@ def render_welcome() -> None:
 
 
 def render_offer() -> None:
+    if st.session_state.decision is not None:
+        st.session_state.page = "survey"
+        st.rerun()
     ad_path = ADS[st.session_state.assigned_group]
     if not ad_path.exists():
         st.error("The assigned product image is unavailable. Please contact the researcher.")
         st.stop()
+    # The non-visible timer starts exactly once, when the assigned ad is rendered.
+    if st.session_state.ad_exposure_started_at is None:
+        st.session_state.ad_exposure_started_at = time.perf_counter()
     progress(1)
     st.markdown("<div class='hero-kicker'>Your selected offer</div>", unsafe_allow_html=True)
     st.title("A closer look")
     st.write("Imagine this product appeared while you were shopping online. View the offer as you normally would.")
     st.image(str(ad_path), use_container_width=True)
-    st.markdown("<div class='quiet-note'>Take a moment to look at the product details and offer.</div>", unsafe_allow_html=True)
-    if st.button("I've viewed the offer  →", type="primary", use_container_width=True):
-        st.session_state.page = "survey"
+    st.markdown("<div class='quiet-note'>What would you like to do with this offer?</div>", unsafe_allow_html=True)
+    add_to_cart, not_interested = st.columns(2)
+    with add_to_cart:
+        chose_cart = st.button("🛒  ADD TO CART", type="primary", use_container_width=True)
+    with not_interested:
+        chose_not_interested = st.button("NOT INTERESTED", use_container_width=True)
+    if chose_cart or chose_not_interested:
+        st.session_state.decision = "ADD_TO_CART" if chose_cart else "NOT_INTERESTED"
+        st.session_state.decision_time_seconds = round(
+            time.perf_counter() - st.session_state.ad_exposure_started_at, 3
+        )
         st.rerun()
 
 
@@ -110,7 +133,7 @@ def render_survey() -> None:
             st.error("Please answer every question before submitting.")
             return
         pii = round((q1 + q2 + q3) / 3, 2)
-        save_response({"respondent_id": st.session_state.respondent_id, "participant_id": st.session_state.participant_id, "timestamp_utc": datetime.now(timezone.utc).isoformat(), "assigned_group": st.session_state.assigned_group, "online_purchase_last_6_months": bought_online, "shopping_frequency": shopping_frequency, "discount_importance": discount_importance, "purchase_likelihood": q1, "purchase_consideration": q2, "offer_choice_likelihood": q3, "purchase_intention_index": pii, "discount_communication_recall": recall, "discount_clarity": clarity})
+        save_response({"respondent_id": st.session_state.respondent_id, "participant_id": st.session_state.participant_id, "timestamp_utc": datetime.now(timezone.utc).isoformat(), "assigned_group": st.session_state.assigned_group, "decision": st.session_state.decision, "decision_time_seconds": st.session_state.decision_time_seconds, "online_purchase_last_6_months": bought_online, "shopping_frequency": shopping_frequency, "discount_importance": discount_importance, "purchase_likelihood": q1, "purchase_consideration": q2, "offer_choice_likelihood": q3, "purchase_intention_index": pii, "discount_communication_recall": recall, "discount_clarity": clarity})
         st.session_state.page = "thank_you"
         st.rerun()
 
